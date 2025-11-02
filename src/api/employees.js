@@ -3,42 +3,59 @@ import Constants from 'expo-constants';
 const BASE_URL = (Constants?.expoConfig?.extra?.apiBaseUrl) || 'https://retoolapi.dev/Vv50y8/recuperacion';
 
 async function handleResponse(response) {
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText}`);
+  // Maneja respuestas sin cuerpo (204 No Content)
+  if (response.status === 204) {
+    return null;
   }
-  // Maneja respuestas sin cuerpo (204 o 200 sin JSON)
-  const contentLength = response.headers.get('content-length');
-  if (response.status === 204 || contentLength === '0' || contentLength === null) {
-    try {
-      // Algunos servidores omiten content-length; intenta leer texto y valida
-      const text = await response.text();
-      if (!text) return null;
-      return JSON.parse(text);
-    } catch (_) {
+  
+  // Leer el texto de la respuesta una sola vez
+  const text = await response.text();
+  
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+  
+  // Intentar parsear JSON
+  try {
+    if (!text || text.trim() === '') {
       return null;
     }
+    return JSON.parse(text);
+  } catch (err) {
+    // Si no puede parsear, retornar null
+    return null;
   }
-  return await response.json();
 }
 
 function normalizeEmployeeFromApi(raw) {
-  return {
-    id: raw.id ?? raw.Id,
-    name: raw.name ?? raw.Name ?? raw.nombre ?? raw.Nombre ?? '',
-    age: raw.age ?? raw.Age ?? raw.edad ?? raw.Edad ?? '',
-    position: raw.position ?? raw.Position ?? raw.puesto ?? raw.Puesto ?? '',
-    phone: raw.phone ?? raw.Phone ?? raw.telefono ?? raw.Telefono ?? '',
+  const normalized = {
+    id: raw.Id ?? raw.id,
+    name: raw.Name ?? raw.name ?? raw.nombre ?? raw.Nombre ?? '',
+    age: raw.Age ?? raw.age ?? raw.edad ?? raw.Edad ?? '',
+    position: raw.Position ?? raw.position ?? raw.Puesto ?? raw.puesto ?? raw.Job ?? '',
+    phone: raw.Phone ?? raw.phone ?? raw.PhoneNumber ?? raw.telefono ?? raw.Telefono ?? '',
   };
+  console.log(' NORMALIZE - Raw:', raw, '→ Normalized:', normalized);
+  return normalized;
 }
 
 export async function fetchEmployees(searchTerm) {
   const url = searchTerm && searchTerm.trim().length > 0
     ? `${BASE_URL}?Name=${encodeURIComponent(searchTerm.trim())}`
     : BASE_URL;
+  console.log(' SEARCH - Término:', searchTerm);
+  console.log(' SEARCH - URL:', url);
+  
   const response = await fetch(url);
   const data = await handleResponse(response);
-  return Array.isArray(data) ? data.map(normalizeEmployeeFromApi) : [];
+  
+  console.log(' SEARCH - Datos recibidos:', data);
+  console.log(' SEARCH - Es array:', Array.isArray(data));
+  
+  const result = Array.isArray(data) ? data.map(normalizeEmployeeFromApi) : [];
+  console.log(' SEARCH - Resultado normalizado:', result);
+  
+  return result;
 }
 
 export async function fetchEmployeeById(id) {
@@ -89,12 +106,22 @@ export async function updateEmployee(id, employee) {
 }
 
 export async function deleteEmployee(id) {
+  console.log(' DELETE - ID recibido:', id);
+  console.log(' DELETE - URL:', `${BASE_URL}/${id}`);
+  
   const response = await fetch(`${BASE_URL}/${id}`, { method: 'DELETE' });
+  
+  console.log(' DELETE - Status:', response.status);
+  console.log(' DELETE - OK:', response.ok);
+  
   // La API suele devolver 200/204 sin cuerpo; no es necesario parsear
   if (!response.ok) {
     const msg = await response.text();
+    console.error(' DELETE - Error:', `HTTP ${response.status}: ${msg}`);
     throw new Error(`HTTP ${response.status}: ${msg}`);
   }
+  
+  console.log(' DELETE - Éxito');
   return null;
 }
 

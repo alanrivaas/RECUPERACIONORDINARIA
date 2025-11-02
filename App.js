@@ -58,8 +58,20 @@ export default function App() {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const list = await fetchEmployees(optionalTerm ?? searchTerm);
-      setEmployees(Array.isArray(list) ? list : []);
+      // Cargar todos los empleados
+      const list = await fetchEmployees();
+      
+      // Filtrar por búsqueda si hay término
+      const term = optionalTerm ?? searchTerm;
+      if (term && term.trim().length > 0) {
+        const searchLower = term.trim().toLowerCase();
+        const filtered = list.filter(emp => 
+          emp.name.toLowerCase().includes(searchLower)
+        );
+        setEmployees(filtered);
+      } else {
+        setEmployees(list);
+      }
     } catch (err) {
       setErrorMessage(String(err.message || err));
     } finally {
@@ -124,6 +136,7 @@ export default function App() {
   }
 
   function confirmDelete(id) {
+    console.log(' CONFIRM_DELETE - ID recibido:', id, 'Tipo:', typeof id);
     Alert.alert('Eliminar', '¿Deseas eliminar este empleado?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: () => handleDelete(id) },
@@ -131,12 +144,15 @@ export default function App() {
   }
 
   async function handleDelete(id) {
+    console.log(' HANDLE_DELETE - ID recibido:', id, 'Tipo:', typeof id);
     try {
       setLoading(true);
       setErrorMessage(null);
       await deleteEmployee(id);
       await loadEmployees();
+      console.log(' HANDLE_DELETE - Éxito');
     } catch (err) {
+      console.error(' HANDLE_DELETE - Error:', err);
       setErrorMessage(String(err.message || err));
     } finally {
       setLoading(false);
@@ -153,6 +169,10 @@ export default function App() {
   }
 
   function renderItem({ item }) {
+    console.log(' RENDER_ITEM - Item completo:', item);
+    const itemId = item.id;
+    console.log(' RENDER_ITEM - ID extraído:', itemId);
+    
     return (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{item.name}</Text>
@@ -163,7 +183,10 @@ export default function App() {
           <TouchableOpacity style={[styles.button, styles.edit]} onPress={() => openEditForm(item)}>
             <Text style={styles.buttonText}>Editar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.delete]} onPress={() => confirmDelete(item.id)}>
+          <TouchableOpacity style={[styles.button, styles.delete]} onPress={() => {
+            console.log(' ON_PRESS - ID a eliminar:', itemId);
+            confirmDelete(itemId);
+          }}>
             <Text style={styles.buttonText}>Eliminar</Text>
           </TouchableOpacity>
         </View>
