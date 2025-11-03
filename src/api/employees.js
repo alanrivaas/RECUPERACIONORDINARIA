@@ -106,23 +106,60 @@ export async function updateEmployee(id, employee) {
 }
 
 export async function deleteEmployee(id) {
-  console.log(' DELETE - ID recibido:', id);
-  console.log(' DELETE - URL:', `${BASE_URL}/${id}`);
+  // Asegurar que el ID sea un número o string válido
+  const validId = String(id).trim();
   
-  const response = await fetch(`${BASE_URL}/${id}`, { method: 'DELETE' });
-  
-  console.log(' DELETE - Status:', response.status);
-  console.log(' DELETE - OK:', response.ok);
-  
-  // La API suele devolver 200/204 sin cuerpo; no es necesario parsear
-  if (!response.ok) {
-    const msg = await response.text();
-    console.error(' DELETE - Error:', `HTTP ${response.status}: ${msg}`);
-    throw new Error(`HTTP ${response.status}: ${msg}`);
+  if (!validId || validId === 'undefined' || validId === 'null') {
+    console.error('❌ DELETE - ID inválido:', id);
+    throw new Error(`ID inválido: ${id}`);
   }
   
-  console.log(' DELETE - Éxito');
-  return null;
+  const url = `${BASE_URL}/${validId}`;
+  console.log('🗑️ DELETE - ID recibido:', id, 'Tipo:', typeof id);
+  console.log('🗑️ DELETE - ID válido:', validId);
+  console.log('🗑️ DELETE - URL:', url);
+  
+  try {
+    const response = await fetch(url, { 
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    console.log('🗑️ DELETE - Status:', response.status);
+    console.log('🗑️ DELETE - OK:', response.ok);
+    console.log('🗑️ DELETE - StatusText:', response.statusText);
+    
+    // La API puede devolver 200, 204, o 404 si no existe
+    if (response.status === 404) {
+      throw new Error(`Empleado con ID ${validId} no encontrado`);
+    }
+    
+    if (!response.ok) {
+      let errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const text = await response.text();
+        if (text) {
+          errorMsg += ` - ${text}`;
+        }
+      } catch (e) {
+        // Ignorar error al leer el texto
+      }
+      console.error('❌ DELETE - Error:', errorMsg);
+      throw new Error(errorMsg);
+    }
+    
+    console.log('✅ DELETE - Éxito');
+    return { success: true, id: validId };
+  } catch (err) {
+    console.error('❌ DELETE - Excepción:', err);
+    // Si es un error de red, proporcionar un mensaje más claro
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      throw new Error('Error de conexión. Verifica tu conexión a internet.');
+    }
+    throw err;
+  }
 }
 
 
